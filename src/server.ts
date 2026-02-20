@@ -321,7 +321,6 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
         `⚡ ${escMdV2('NEW OKX DEPOSIT DETECTED')}\n` +
         `> ${escMdV2('Amount: ' + amountLine)}\n` +
         `> ${escMdV2('Network: ' + networkPretty)}\n` +
-        `> \n` +
         `> [${escMdV2('View on Scan')}](${escMdV2Url(explorer)})\n` +
         `> ${escMdV2('@cryptohornettg')}`;
 
