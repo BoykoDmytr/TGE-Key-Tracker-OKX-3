@@ -236,11 +236,14 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
             const amountLine = `${amountHuman} $${label}`; // як у прикладі: 1 $RIVER
             // ✅ MESSAGE EXACT FORMAT (MarkdownV2 + quote + link)
             // IMPORTANT: sendTelegram must use parse_mode: 'MarkdownV2'
+            const ZWSP = '\u200B';
             const message = `⚡ ${escMdV2('NEW OKX DEPOSIT DETECTED')}\n` +
                 `> ${escMdV2('Amount: ' + amountLine)}\n` +
                 `> ${escMdV2('Network: ' + networkPretty)}\n` +
+                `${ZWSP}\n` +
                 `> [${escMdV2('View on Scan')}](${escMdV2Url(explorer)})\n` +
-                `> ${escMdV2('@CryptoHornet')}`;
+                `${ZWSP}\n` +
+                `> ${escMdV2('@cryptohornettg')}`;
             req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
             await sendTelegram(message);
             sentCount++;
