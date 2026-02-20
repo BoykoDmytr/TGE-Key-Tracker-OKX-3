@@ -238,8 +238,8 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
             // IMPORTANT: sendTelegram must use parse_mode: 'MarkdownV2'
             const message = `⚡ ${escMdV2('NEW OKX DEPOSIT DETECTED')}\n` +
                 `> ${escMdV2('Amount: ' + amountLine)}\n` +
-                `> ${escMdV2('Network: ' + networkPretty)}\n\n` +
-                `> [${escMdV2('View on Scan')}](${escMdV2Url(explorer)})\n\n` +
+                `> ${escMdV2('Network: ' + networkPretty)}\n` +
+                `> [${escMdV2('View on Scan')}](${escMdV2Url(explorer)})\n` +
                 `> ${escMdV2('@CryptoHornet')}`;
             req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
             await sendTelegram(message);
