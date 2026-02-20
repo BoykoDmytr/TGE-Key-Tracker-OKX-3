@@ -9,8 +9,10 @@ import { getErc20MetaCached, formatUnitsSafe } from './evm/erc20MetaCache.js';
 import { isDuplicate, markDuplicate } from './dedupe.js';
 import { sendTelegram } from './telegram.js';
 const app = express();
+// ✅ GLOBAL MIN AMOUNT FILTER (tokens)
+const MIN_TOKEN_AMOUNT = 5000;
 // ====== BOOT LOG ======
-console.log('[boot] server.ts version=2026-02-11T22:XXZ chainId97=ON');
+console.log('[boot] server.ts version=2026-02-12TXX:XXZ allTokensMode=ON');
 console.log('[boot] NODE_ENV=%s PORT=%s', process.env.NODE_ENV, process.env.PORT);
 console.log('[boot] CHAINS=%s', process.env.CHAINS || '(not set)');
 console.log('[boot] INTERACTION_CONTRACT=%s', process.env.INTERACTION_CONTRACT || '(not set)');
@@ -72,7 +74,6 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
             req.log.error({ err: e?.message || e }, 'Failed to JSON.parse body');
             return res.status(400).send('Bad JSON');
         }
-        // Basic payload debug (without dumping everything)
         req.log.info({
             event_type: body?.event_type,
             hasAlert: Boolean(body?.alert),
@@ -146,13 +147,15 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
         // Thresholds / labels
         const thresholds = safeJson(process.env.THRESHOLDS_JSON || '{}');
         const thresholdsLower = {};
-        for (const [addr, human] of Object.entries(thresholds))
+        for (const [addr, human] of Object.entries(thresholds || {}))
             thresholdsLower[addr.toLowerCase()] = String(human);
+        const strictMode = Object.keys(thresholdsLower).length > 0;
         const tokenLabels = safeJson(process.env.TOKEN_LABELS_JSON || '{}');
         const tokenLabelsLower = {};
-        for (const [addr, label] of Object.entries(tokenLabels))
+        for (const [addr, label] of Object.entries(tokenLabels || {}))
             tokenLabelsLower[addr.toLowerCase()] = String(label);
         req.log.info({
+            strictMode,
             thresholdsKeys: Object.keys(thresholdsLower).slice(0, 20),
             labelsKeys: Object.keys(tokenLabelsLower).slice(0, 20),
         }, 'loaded thresholds/labels');
@@ -160,7 +163,7 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
         let sentCount = 0;
         for (const t of transfers) {
             const tokenAddrLower = t.token.toLowerCase();
-            const threshHuman = thresholdsLower[tokenAddrLower];
+            const threshHuman = thresholdsLower[tokenAddrLower] ?? null;
             req.log.info({
                 token: t.token,
                 from: t.from,
@@ -168,11 +171,13 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
                 logIndex: t.logIndex,
                 value: t.value.toString(),
                 hasThreshold: Boolean(threshHuman),
-                threshold: threshHuman || null,
+                threshold: threshHuman,
             }, 'transfer candidate');
             // strict mode: only tokens in thresholds
-            if (!threshHuman)
+            if (strictMode && !threshHuman) {
+                req.log.info({ token: t.token }, 'skip: token not in thresholds (strictMode)');
                 continue;
+            }
             const dedupeKey = `${chainKey}:${txHash}:${t.logIndex}:${tokenAddrLower}:${t.to.toLowerCase()}`;
             const dup = await isDuplicate(dedupeKey);
             req.log.info({ dedupeKey, dup }, 'dedupe check');
@@ -182,28 +187,40 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
             req.log.info({ token: t.token }, 'fetching token meta');
             const meta = await getErc20MetaCached(client, t.token);
             const amountHuman = formatUnitsSafe(t.value, meta.decimals);
+            // ✅ GLOBAL FILTER: skip if amount < 5000 tokens
+            const amountNum = Number(amountHuman);
+            if (!Number.isNaN(amountNum) && amountNum < MIN_TOKEN_AMOUNT) {
+                req.log.info({ amountHuman, MIN_TOKEN_AMOUNT }, 'skip: amount below global minimum');
+                continue;
+            }
+            function compareHuman(amount, threshold) {
+                const a = Number(amount);
+                const b = Number(threshold);
+                if (Number.isNaN(a) || Number.isNaN(b))
+                    return false;
+                return a >= b;
+            }
+            // threshold compare: if there is a per-token threshold -> enforce it, else allow (non-strict)
+            const pass = threshHuman ? compareHuman(amountHuman, String(threshHuman)) : true;
             req.log.info({
                 token: t.token,
                 symbol: meta.symbol,
                 decimals: meta.decimals,
                 amountHuman,
                 threshold: threshHuman,
+                pass,
             }, 'meta + amount');
-            // threshold compare
-            const pass = compareHuman(amountHuman, threshHuman);
-            req.log.info({ pass }, 'threshold compare');
             if (!pass)
                 continue;
             const explorer = getExplorerTxUrl(chainKey, txHash);
             const label = tokenLabelsLower[tokenAddrLower] || meta.symbol;
-            const message = `🔔 Interaction + ERC20 Transfer\n` +
-                `Chain: ${chainKey}\n` +
-                `Token: ${label} (${t.token})\n` +
+            // ✅ NEW TELEGRAM STYLE (like your “NEW OKX DEPOSIT DETECTED” example)
+            const message = `🟢 NEW OKX DEPOSIT DETECTED\n\n` +
+                `Token: ${label}\n` +
                 `Amount: ${amountHuman}\n` +
-                `From: ${t.from}\n` +
-                `To: ${t.to}\n` +
-                `Interaction: ${tx.to}\n` +
-                `Tx: ${explorer}`;
+                `Network: ${chainKey}\n\n` +
+                `View on Scan: ${explorer}\n` +
+                `\n@CryptoHornet`;
             req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
             await sendTelegram(message);
             sentCount++;
@@ -254,11 +271,4 @@ function safeJson(s) {
     catch {
         return {};
     }
-}
-function compareHuman(amount, threshold) {
-    const a = Number(amount);
-    const b = Number(threshold);
-    if (Number.isNaN(a) || Number.isNaN(b))
-        return false;
-    return a >= b;
 }
