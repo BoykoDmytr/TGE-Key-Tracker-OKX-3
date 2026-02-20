@@ -241,8 +241,8 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
                     .replace(/'/g, '&#39;');
             }
             const message = `⚡ <b>${escHtml('NEW OKX DEPOSIT DETECTED')}</b>\n\n` +
-                `Network: ${escHtml(networkPretty)}\n` +
                 `Amount: ${escHtml(amountLine)}\n` +
+                `Network: ${escHtml(networkPretty)}\n` +
                 `<a href="${escHtml(explorer)}">${escHtml('View on Scan')}</a>\n\n` +
                 `@cryptohornettg`;
             req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
