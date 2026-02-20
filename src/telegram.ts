@@ -17,7 +17,7 @@ export async function sendTelegram(text: string): Promise<void> {
   const payload = {
     chat_id: chatId,
     text,
-    parse_mode: 'MarkdownV2',
+    parse_mode: 'HTML',
     disable_web_page_preview: true,
   };
   const res = await fetch(url, {

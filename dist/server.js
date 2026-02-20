@@ -223,25 +223,28 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
                 continue;
             const explorer = getExplorerTxUrl(chainKey, txHash);
             // красиве ім’я мережі без underscore (щоб не ламало Markdown)
-            const networkPretty = chainKey === 'bsc_testnet'
-                ? 'BSC Testnet'
-                : chainKey === 'bsc'
-                    ? 'BSC'
-                    : chainKey === 'base'
-                        ? 'Base'
-                        : chainKey === 'arbitrum'
-                            ? 'Arbitrum'
-                            : chainKey;
+            const networkPretty = chainKey === 'bsc_testnet' ? 'BSC Testnet' :
+                chainKey === 'bsc' ? 'BSC' :
+                    chainKey === 'base' ? 'Base' :
+                        chainKey === 'arbitrum' ? 'Arbitrum' :
+                            chainKey;
             const label = tokenLabelsLower[tokenAddrLower] || meta.symbol;
-            const amountLine = `${amountHuman} $${label}`; // як у прикладі: 1 $RIVER
+            const amountLine = `${amountHuman} $${label}`;
             // ✅ MESSAGE EXACT FORMAT (MarkdownV2 + quote + link)
             // IMPORTANT: sendTelegram must use parse_mode: 'MarkdownV2'
-            const ZWSP = '\u200B';
-            const message = `⚡ ${escMdV2('NEW OKX DEPOSIT DETECTED')}\n` +
-                `> ${escMdV2('Amount: ' + amountLine)}\n` +
-                `> ${escMdV2('Network: ' + networkPretty)}\n` +
-                `> [${escMdV2('View on Scan')}](${escMdV2Url(explorer)})\n` +
-                `> ${escMdV2('@cryptohornettg')}`;
+            function escHtml(s) {
+                return s
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+            const message = `⚡ <b>${escHtml('NEW OKX DEPOSIT DETECTED')}</b>\n\n` +
+                `Network: ${escHtml(networkPretty)}\n` +
+                `Amount: ${escHtml(amountLine)}\n` +
+                `<a href="${escHtml(explorer)}">${escHtml('View on Scan')}</a>\n\n` +
+                `@cryptohornettg`;
             req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
             await sendTelegram(message);
             sentCount++;
