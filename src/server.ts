@@ -14,6 +14,9 @@ import { sendTelegram } from './telegram.js';
 
 const app = express();
 
+// ✅ GLOBAL MIN AMOUNT FILTER (tokens)
+const MIN_TOKEN_AMOUNT = 5000;
+
 // ====== BOOT LOG ======
 console.log('[boot] server.ts version=2026-02-12TXX:XXZ allTokensMode=ON');
 console.log('[boot] NODE_ENV=%s PORT=%s', process.env.NODE_ENV, process.env.PORT);
@@ -248,12 +251,21 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
       req.log.info({ token: t.token }, 'fetching token meta');
       const meta = await getErc20MetaCached(client as any, t.token);
       const amountHuman = formatUnitsSafe(t.value, meta.decimals);
+
+      // ✅ GLOBAL FILTER: skip if amount < 5000 tokens
+      const amountNum = Number(amountHuman);
+      if (!Number.isNaN(amountNum) && amountNum < MIN_TOKEN_AMOUNT) {
+        req.log.info({ amountHuman, MIN_TOKEN_AMOUNT }, 'skip: amount below global minimum');
+        continue;
+      }
+
       function compareHuman(amount: string, threshold: string): boolean {
         const a = Number(amount);
         const b = Number(threshold);
         if (Number.isNaN(a) || Number.isNaN(b)) return false;
         return a >= b;
       }
+
       // threshold compare: if there is a per-token threshold -> enforce it, else allow (non-strict)
       const pass = threshHuman ? compareHuman(amountHuman, String(threshHuman)) : true;
 
@@ -274,15 +286,14 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
       const explorer = getExplorerTxUrl(chainKey, txHash);
       const label = tokenLabelsLower[tokenAddrLower] || meta.symbol;
 
+      // ✅ NEW TELEGRAM STYLE (like your “NEW OKX DEPOSIT DETECTED” example)
       const message =
-        `🔔 Interaction + ERC20 Transfer\n` +
-        `Chain: ${chainKey}\n` +
-        `Token: ${label} (${t.token})\n` +
+        `🟢 NEW OKX DEPOSIT DETECTED\n\n` +
+        `Token: ${label}\n` +
         `Amount: ${amountHuman}\n` +
-        `From: ${t.from}\n` +
-        `To: ${t.to}\n` +
-        `Interaction: ${tx.to}\n` +
-        `Tx: ${explorer}`;
+        `Network: ${chainKey}\n\n` +
+        `View on Scan: ${explorer}\n` +
+        `\n@CryptoHornet`;
 
       req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
       await sendTelegram(message);
@@ -334,6 +345,5 @@ function safeJson<T>(s: string): T {
     return JSON.parse(s) as T;
   } catch {
     return {} as T;
-}
-
+  }
 }
