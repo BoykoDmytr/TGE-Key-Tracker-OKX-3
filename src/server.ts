@@ -321,9 +321,8 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
         `⚡ ${escMdV2('NEW OKX DEPOSIT DETECTED')}\n` +
         `> ${escMdV2('Amount: ' + amountLine)}\n` +
         `> ${escMdV2('Network: ' + networkPretty)}\n` +
-        `${ZWSP}\n` +
+        `> \n` +
         `> [${escMdV2('View on Scan')}](${escMdV2Url(explorer)})\n` +
-        `${ZWSP}\n` +
         `> ${escMdV2('@cryptohornettg')}`;
 
       req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
