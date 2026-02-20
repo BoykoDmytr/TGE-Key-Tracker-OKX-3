@@ -34,6 +34,16 @@ app.use(pinoHttp());
 app.get('/health', (_req: Request, res: Response) => res.status(200).send('ok'));
 app.get('/webhooks/tenderly', (_req, res) => res.status(200).send('ok - use POST here'));
 
+// ====== TELEGRAM MARKDOWNV2 HELPERS ======
+function escMdV2(s: string): string {
+  // Escape Telegram MarkdownV2 special chars
+  return s.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+}
+function escMdV2Url(url: string): string {
+  // In MarkdownV2 links, you must escape ')' and '\' at minimum
+  return url.replace(/\\/g, '\\\\').replace(/\)/g, '\\)');
+}
+
 // ====== WEBHOOK HANDLER ======
 app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
   const startedAt = Date.now();
@@ -199,13 +209,15 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
     // Thresholds / labels
     const thresholds: Record<string, string> = safeJson(process.env.THRESHOLDS_JSON || '{}');
     const thresholdsLower: Record<string, string> = {};
-    for (const [addr, human] of Object.entries(thresholds || {})) thresholdsLower[addr.toLowerCase()] = String(human);
+    for (const [addr, human] of Object.entries(thresholds || {}))
+      thresholdsLower[addr.toLowerCase()] = String(human);
 
     const strictMode = Object.keys(thresholdsLower).length > 0;
 
     const tokenLabels: Record<string, string> = safeJson(process.env.TOKEN_LABELS_JSON || '{}');
     const tokenLabelsLower: Record<string, string> = {};
-    for (const [addr, label] of Object.entries(tokenLabels || {})) tokenLabelsLower[addr.toLowerCase()] = String(label);
+    for (const [addr, label] of Object.entries(tokenLabels || {}))
+      tokenLabelsLower[addr.toLowerCase()] = String(label);
 
     req.log.info(
       {
@@ -284,16 +296,31 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
       if (!pass) continue;
 
       const explorer = getExplorerTxUrl(chainKey, txHash);
+
+      // красиве ім’я мережі без underscore (щоб не ламало Markdown)
+      const networkPretty =
+        chainKey === 'bsc_testnet'
+          ? 'BSC Testnet'
+          : chainKey === 'bsc'
+            ? 'BSC'
+            : chainKey === 'base'
+              ? 'Base'
+              : chainKey === 'arbitrum'
+                ? 'Arbitrum'
+                : chainKey;
+
       const label = tokenLabelsLower[tokenAddrLower] || meta.symbol;
 
-      // ✅ NEW TELEGRAM STYLE (like your “NEW OKX DEPOSIT DETECTED” example)
+      const amountLine = `${amountHuman} $${label}`; // як у прикладі: 1 $RIVER
+
+      // ✅ MESSAGE EXACT FORMAT (MarkdownV2 + quote + link)
+      // IMPORTANT: sendTelegram must use parse_mode: 'MarkdownV2'
       const message =
-        `🟢 NEW OKX DEPOSIT DETECTED\n\n` +
-        `Token: ${label}\n` +
-        `Amount: ${amountHuman}\n` +
-        `Network: ${chainKey}\n\n` +
-        `View on Scan: ${explorer}\n` +
-        `\n@CryptoHornet`;
+        `⚡ ${escMdV2('NEW OKX DEPOSIT DETECTED')}\n` +
+        `> ${escMdV2('Amount: ' + amountLine)}\n` +
+        `> ${escMdV2('Network: ' + networkPretty)}\n\n` +
+        `> [${escMdV2('View on Scan')}](${escMdV2Url(explorer)})\n\n` +
+        `> ${escMdV2('@CryptoHornet')}`;
 
       req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
       await sendTelegram(message);

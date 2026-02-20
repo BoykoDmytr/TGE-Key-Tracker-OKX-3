@@ -4,10 +4,6 @@ function requireEnv(name) {
         throw new Error(`Missing env var: ${name}`);
     return v;
 }
-/**
- * Send a plain text message to your Telegram bot chat.
- * Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in your environment.
- */
 export async function sendTelegram(text) {
     const botToken = requireEnv('TELEGRAM_BOT_TOKEN');
     const chatId = requireEnv('TELEGRAM_CHAT_ID');
@@ -15,12 +11,13 @@ export async function sendTelegram(text) {
     const payload = {
         chat_id: chatId,
         text,
-        disable_web_page_preview: true
+        parse_mode: 'MarkdownV2',
+        disable_web_page_preview: true,
     };
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
     });
     if (!res.ok) {
         const errText = await res.text().catch(() => '');

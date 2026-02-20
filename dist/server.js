@@ -25,6 +25,15 @@ app.use(pinoHttp());
 // ====== ROUTES ======
 app.get('/health', (_req, res) => res.status(200).send('ok'));
 app.get('/webhooks/tenderly', (_req, res) => res.status(200).send('ok - use POST here'));
+// ====== TELEGRAM MARKDOWNV2 HELPERS ======
+function escMdV2(s) {
+    // Escape Telegram MarkdownV2 special chars
+    return s.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+}
+function escMdV2Url(url) {
+    // In MarkdownV2 links, you must escape ')' and '\' at minimum
+    return url.replace(/\\/g, '\\\\').replace(/\)/g, '\\)');
+}
 // ====== WEBHOOK HANDLER ======
 app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async (req, res) => {
     const startedAt = Date.now();
@@ -213,14 +222,25 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
             if (!pass)
                 continue;
             const explorer = getExplorerTxUrl(chainKey, txHash);
+            // красиве ім’я мережі без underscore (щоб не ламало Markdown)
+            const networkPretty = chainKey === 'bsc_testnet'
+                ? 'BSC Testnet'
+                : chainKey === 'bsc'
+                    ? 'BSC'
+                    : chainKey === 'base'
+                        ? 'Base'
+                        : chainKey === 'arbitrum'
+                            ? 'Arbitrum'
+                            : chainKey;
             const label = tokenLabelsLower[tokenAddrLower] || meta.symbol;
-            // ✅ NEW TELEGRAM STYLE (like your “NEW OKX DEPOSIT DETECTED” example)
-            const message = `🟢 NEW OKX DEPOSIT DETECTED\n\n` +
-                `Token: ${label}\n` +
-                `Amount: ${amountHuman}\n` +
-                `Network: ${chainKey}\n\n` +
-                `View on Scan: ${explorer}\n` +
-                `\n@CryptoHornet`;
+            const amountLine = `${amountHuman} $${label}`; // як у прикладі: 1 $RIVER
+            // ✅ MESSAGE EXACT FORMAT (MarkdownV2 + quote + link)
+            // IMPORTANT: sendTelegram must use parse_mode: 'MarkdownV2'
+            const message = `⚡ ${escMdV2('NEW OKX DEPOSIT DETECTED')}\n` +
+                `> ${escMdV2('Amount: ' + amountLine)}\n` +
+                `> ${escMdV2('Network: ' + networkPretty)}\n\n` +
+                `> [${escMdV2('View on Scan')}](${escMdV2Url(explorer)})\n\n` +
+                `> ${escMdV2('@CryptoHornet')}`;
             req.log.info({ messagePreview: message.slice(0, 200) }, 'sending telegram');
             await sendTelegram(message);
             sentCount++;
