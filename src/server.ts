@@ -11,6 +11,7 @@ import { getErc20MetaCached, formatUnitsSafe } from './evm/erc20MetaCache.js';
 
 import { isDuplicate, markDuplicate } from './dedupe.js';
 import { sendTelegram } from './telegram.js';
+import { formatNumberWithCommas } from './utils/formatNumberWithCommas.js';
 
 const app = express();
 
@@ -307,7 +308,7 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
 
 
       const label = tokenLabelsLower[tokenAddrLower] || meta.symbol;
-      const amountLine = `${amountHuman} $${label}`;
+      const amountLine = `${formatNumberWithCommas(amountHuman)} $${label}`;
 
       // ✅ MESSAGE EXACT FORMAT (MarkdownV2 + quote + link)
       // IMPORTANT: sendTelegram must use parse_mode: 'MarkdownV2'
