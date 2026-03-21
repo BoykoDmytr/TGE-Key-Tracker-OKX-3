@@ -1,8 +1,16 @@
 // src/evm/provider.ts
 import { createPublicClient, http } from 'viem';
-import { bsc, bscTestnet, base, arbitrum } from 'viem/chains';
+import { bsc, bscTestnet, base, arbitrum,
+         mainnet, avalanche, optimism } from 'viem/chains';
 
-export type ChainKey = 'bsc' | 'bsc_testnet' | 'base' | 'arbitrum';
+export type ChainKey =
+  | 'bsc'
+  | 'bsc_testnet'
+  | 'base'
+  | 'arbitrum'
+  | 'ethereum'     // новий: Ethereum mainnet
+  | 'avalanche'    // новий: Avalanche C‑Chain
+  | 'optimism';    // новий: Optimism
 
 // Мінімум методів, які нам треба (без “важких” типів viem)
 export type EvmClient = {
@@ -16,6 +24,9 @@ const RPC: Record<ChainKey, string> = {
   bsc_testnet: process.env.RPC_BSC_TESTNET || '',
   base: process.env.RPC_BASE || '',
   arbitrum: process.env.RPC_ARBITRUM || '',
+  ethereum: process.env.RPC_ETHEREUM || '',   // нове
+  avalanche: process.env.RPC_AVALANCHE || '', // нове
+  optimism: process.env.RPC_OPTIMISM || '',   // нове
 };
 
 const CHAIN = {
@@ -23,6 +34,9 @@ const CHAIN = {
   bsc_testnet: bscTestnet,
   base,
   arbitrum,
+  ethereum: mainnet,  // нове
+  avalanche,          // нове
+  optimism,           // нове
 } as const;
 
 const clients = new Map<ChainKey, EvmClient>();
@@ -46,10 +60,13 @@ export function getPublicClient(chainKey: ChainKey): EvmClient {
 
 export function getExplorerTxUrl(chainKey: ChainKey, txHash: string): string {
   const fallback: Record<ChainKey, string> = {
-    bsc: 'https://bscscan.com/tx/',
-    bsc_testnet: 'https://testnet.bscscan.com/tx/',
-    base: 'https://basescan.org/tx/',
-    arbitrum: 'https://arbiscan.io/tx/',
-  };
+  bsc: 'https://bscscan.com/tx/',
+  bsc_testnet: 'https://testnet.bscscan.com/tx/',
+  base: 'https://basescan.org/tx/',
+  arbitrum: 'https://arbiscan.io/tx/',
+  ethereum: 'https://etherscan.io/tx/',        // нове: Etherscan
+  avalanche: 'https://snowtrace.io/tx/',        // нове: SnowTrace (Avalanche C‑Chain)
+  optimism: 'https://optimistic.etherscan.io/tx/', // нове: Optimistic Etherscan
+};
   return `${fallback[chainKey]}${txHash}`;
 }

@@ -300,11 +300,14 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
 
       // красиве ім’я мережі без underscore (щоб не ламало Markdown)
       const networkPretty =
-        chainKey === 'bsc_testnet' ? 'BSC Testnet' :
-        chainKey === 'bsc' ? 'BSC' :
-        chainKey === 'base' ? 'Base' :
-        chainKey === 'arbitrum' ? 'Arbitrum' :
-        chainKey;
+          chainKey === 'bsc_testnet' ? 'BSC Testnet' :
+          chainKey === 'bsc' ? 'BSC' :
+          chainKey === 'base' ? 'Base' :
+          chainKey === 'arbitrum' ? 'Arbitrum' :
+          chainKey === 'ethereum' ? 'Ethereum' :      // нове
+          chainKey === 'avalanche' ? 'Avalanche' :    // нове
+          chainKey === 'optimism' ? 'Optimism' :      // нове
+          chainKey;
 
 
       const label = tokenLabelsLower[tokenAddrLower] || meta.symbol;
@@ -358,18 +361,23 @@ app.listen(port, () => console.log(`Listening on :${port}`));
 function normalizeTenderlyNetwork(net: string): ChainKey | null {
   const n = String(net).toLowerCase().trim();
 
-  // chainId format
+  // Chain ID формати
   if (n === '56') return 'bsc';
   if (n === '97') return 'bsc_testnet';
   if (n === '8453') return 'base';
   if (n === '42161') return 'arbitrum';
+  if (n === '1') return 'ethereum';        // нове: Ethereum Mainnet
+  if (n === '43114') return 'avalanche';   // нове: Avalanche C‑Chain
+  if (n === '10') return 'optimism';       // нове: Optimism
 
-  // textual format
+  // Текстові формати
   if (n.includes('bsc') && n.includes('test')) return 'bsc_testnet';
   if (n.includes('bsc') || n.includes('bnb')) return 'bsc';
   if (n.includes('base')) return 'base';
   if (n.includes('arbitrum')) return 'arbitrum';
-
+  if (n.includes('eth') || n.includes('ethereum')) return 'ethereum';     // нове
+  if (n.includes('avax') || n.includes('avalanche')) return 'avalanche';  // нове
+  if (n.includes('op') || n.includes('optimism')) return 'optimism';      // нове
   return null;
 }
 

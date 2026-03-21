@@ -228,7 +228,10 @@ app.post('/webhooks/tenderly', express.raw({ type: 'application/json' }), async 
                 chainKey === 'bsc' ? 'BSC' :
                     chainKey === 'base' ? 'Base' :
                         chainKey === 'arbitrum' ? 'Arbitrum' :
-                            chainKey;
+                            chainKey === 'ethereum' ? 'Ethereum' : // нове
+                                chainKey === 'avalanche' ? 'Avalanche' : // нове
+                                    chainKey === 'optimism' ? 'Optimism' : // нове
+                                        chainKey;
             const label = tokenLabelsLower[tokenAddrLower] || meta.symbol;
             const amountLine = `${formatNumberWithCommas(amountHuman)} $${label}`;
             // ✅ MESSAGE EXACT FORMAT (MarkdownV2 + quote + link)
@@ -269,7 +272,7 @@ const port = Number(process.env.PORT || 8080);
 app.listen(port, () => console.log(`Listening on :${port}`));
 function normalizeTenderlyNetwork(net) {
     const n = String(net).toLowerCase().trim();
-    // chainId format
+    // Chain ID формати
     if (n === '56')
         return 'bsc';
     if (n === '97')
@@ -278,7 +281,13 @@ function normalizeTenderlyNetwork(net) {
         return 'base';
     if (n === '42161')
         return 'arbitrum';
-    // textual format
+    if (n === '1')
+        return 'ethereum'; // нове: Ethereum Mainnet
+    if (n === '43114')
+        return 'avalanche'; // нове: Avalanche C‑Chain
+    if (n === '10')
+        return 'optimism'; // нове: Optimism
+    // Текстові формати
     if (n.includes('bsc') && n.includes('test'))
         return 'bsc_testnet';
     if (n.includes('bsc') || n.includes('bnb'))
@@ -287,6 +296,12 @@ function normalizeTenderlyNetwork(net) {
         return 'base';
     if (n.includes('arbitrum'))
         return 'arbitrum';
+    if (n.includes('eth') || n.includes('ethereum'))
+        return 'ethereum'; // нове
+    if (n.includes('avax') || n.includes('avalanche'))
+        return 'avalanche'; // нове
+    if (n.includes('op') || n.includes('optimism'))
+        return 'optimism'; // нове
     return null;
 }
 function safeJson(s) {
