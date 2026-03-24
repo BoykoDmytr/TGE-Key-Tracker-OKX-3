@@ -8,11 +8,11 @@ export type ChainKey =
   | 'bsc_testnet'
   | 'base'
   | 'arbitrum'
-  | 'ethereum'     // новий: Ethereum mainnet
-  | 'avalanche'    // новий: Avalanche C‑Chain
-  | 'optimism';    // новий: Optimism
+  | 'ethereum'
+  | 'avalanche'
+  | 'optimism';
 
-// Мінімум методів, які нам треба (без “важких” типів viem)
+// Мінімум методів, які нам треба (без "важких" типів viem)
 export type EvmClient = {
   getTransaction: (args: { hash: `0x${string}` }) => Promise<{ to: `0x${string}` | null }>;
   getTransactionReceipt: (args: { hash: `0x${string}` }) => Promise<{ logs: any[] }>;
@@ -24,9 +24,9 @@ const RPC: Record<ChainKey, string> = {
   bsc_testnet: process.env.RPC_BSC_TESTNET || '',
   base: process.env.RPC_BASE || '',
   arbitrum: process.env.RPC_ARBITRUM || '',
-  ethereum: process.env.RPC_ETHEREUM || '',   // нове
-  avalanche: process.env.RPC_AVALANCHE || '', // нове
-  optimism: process.env.RPC_OPTIMISM || '',   // нове
+  ethereum: process.env.RPC_ETHEREUM || '',
+  avalanche: process.env.RPC_AVALANCHE || '',
+  optimism: process.env.RPC_OPTIMISM || '',
 };
 
 const CHAIN = {
@@ -34,9 +34,9 @@ const CHAIN = {
   bsc_testnet: bscTestnet,
   base,
   arbitrum,
-  ethereum: mainnet,  // нове
-  avalanche,          // нове
-  optimism,           // нове
+  ethereum: mainnet,
+  avalanche,
+  optimism,
 } as const;
 
 const clients = new Map<ChainKey, EvmClient>();
@@ -48,7 +48,6 @@ export function getPublicClient(chainKey: ChainKey): EvmClient {
   const url = RPC[chainKey];
   if (!url) throw new Error(`Missing RPC for chain ${chainKey}`);
 
-  // Створюємо viem client, але віддаємо як “EvmClient”
   const client = createPublicClient({
     chain: CHAIN[chainKey],
     transport: http(url),
@@ -58,15 +57,30 @@ export function getPublicClient(chainKey: ChainKey): EvmClient {
   return client;
 }
 
-export function getExplorerTxUrl(chainKey: ChainKey, txHash: string): string {
-  const fallback: Record<ChainKey, string> = {
+// Hardcoded fallbacks
+const DEFAULT_EXPLORERS: Record<ChainKey, string> = {
   bsc: 'https://bscscan.com/tx/',
   bsc_testnet: 'https://testnet.bscscan.com/tx/',
   base: 'https://basescan.org/tx/',
   arbitrum: 'https://arbiscan.io/tx/',
-  ethereum: 'https://etherscan.io/tx/',        // нове: Etherscan
-  avalanche: 'https://snowtrace.io/tx/',        // нове: SnowTrace (Avalanche C‑Chain)
-  optimism: 'https://optimistic.etherscan.io/tx/', // нове: Optimistic Etherscan
+  ethereum: 'https://etherscan.io/tx/',
+  avalanche: 'https://snowtrace.io/tx/',
+  optimism: 'https://optimistic.etherscan.io/tx/',
 };
-  return `${fallback[chainKey]}${txHash}`;
+
+// Env var keys for each chain
+const EXPLORER_ENV_KEYS: Record<ChainKey, string> = {
+  bsc: 'EXPLORER_BSC',
+  bsc_testnet: 'EXPLORER_BSC_TESTNET',
+  base: 'EXPLORER_BASE',
+  arbitrum: 'EXPLORER_ARBITRUM',
+  ethereum: 'EXPLORER_ETHEREUM',
+  avalanche: 'EXPLORER_AVALANCHE',
+  optimism: 'EXPLORER_OPTIMISM',
+};
+
+export function getExplorerTxUrl(chainKey: ChainKey, txHash: string): string {
+  const envKey = EXPLORER_ENV_KEYS[chainKey];
+  const baseUrl = (process.env[envKey] || '').trim() || DEFAULT_EXPLORERS[chainKey];
+  return `${baseUrl}${txHash}`;
 }

@@ -6,18 +6,18 @@ const RPC = {
     bsc_testnet: process.env.RPC_BSC_TESTNET || '',
     base: process.env.RPC_BASE || '',
     arbitrum: process.env.RPC_ARBITRUM || '',
-    ethereum: process.env.RPC_ETHEREUM || '', // нове
-    avalanche: process.env.RPC_AVALANCHE || '', // нове
-    optimism: process.env.RPC_OPTIMISM || '', // нове
+    ethereum: process.env.RPC_ETHEREUM || '',
+    avalanche: process.env.RPC_AVALANCHE || '',
+    optimism: process.env.RPC_OPTIMISM || '',
 };
 const CHAIN = {
     bsc,
     bsc_testnet: bscTestnet,
     base,
     arbitrum,
-    ethereum: mainnet, // нове
-    avalanche, // нове
-    optimism, // нове
+    ethereum: mainnet,
+    avalanche,
+    optimism,
 };
 const clients = new Map();
 export function getPublicClient(chainKey) {
@@ -27,7 +27,6 @@ export function getPublicClient(chainKey) {
     const url = RPC[chainKey];
     if (!url)
         throw new Error(`Missing RPC for chain ${chainKey}`);
-    // Створюємо viem client, але віддаємо як “EvmClient”
     const client = createPublicClient({
         chain: CHAIN[chainKey],
         transport: http(url),
@@ -35,15 +34,28 @@ export function getPublicClient(chainKey) {
     clients.set(chainKey, client);
     return client;
 }
+// Hardcoded fallbacks
+const DEFAULT_EXPLORERS = {
+    bsc: 'https://bscscan.com/tx/',
+    bsc_testnet: 'https://testnet.bscscan.com/tx/',
+    base: 'https://basescan.org/tx/',
+    arbitrum: 'https://arbiscan.io/tx/',
+    ethereum: 'https://etherscan.io/tx/',
+    avalanche: 'https://snowtrace.io/tx/',
+    optimism: 'https://optimistic.etherscan.io/tx/',
+};
+// Env var keys for each chain
+const EXPLORER_ENV_KEYS = {
+    bsc: 'EXPLORER_BSC',
+    bsc_testnet: 'EXPLORER_BSC_TESTNET',
+    base: 'EXPLORER_BASE',
+    arbitrum: 'EXPLORER_ARBITRUM',
+    ethereum: 'EXPLORER_ETHEREUM',
+    avalanche: 'EXPLORER_AVALANCHE',
+    optimism: 'EXPLORER_OPTIMISM',
+};
 export function getExplorerTxUrl(chainKey, txHash) {
-    const fallback = {
-        bsc: 'https://bscscan.com/tx/',
-        bsc_testnet: 'https://testnet.bscscan.com/tx/',
-        base: 'https://basescan.org/tx/',
-        arbitrum: 'https://arbiscan.io/tx/',
-        ethereum: 'https://etherscan.io/tx/', // нове: Etherscan
-        avalanche: 'https://snowtrace.io/tx/', // нове: SnowTrace (Avalanche C‑Chain)
-        optimism: 'https://optimistic.etherscan.io/tx/', // нове: Optimistic Etherscan
-    };
-    return `${fallback[chainKey]}${txHash}`;
+    const envKey = EXPLORER_ENV_KEYS[chainKey];
+    const baseUrl = (process.env[envKey] || '').trim() || DEFAULT_EXPLORERS[chainKey];
+    return `${baseUrl}${txHash}`;
 }
